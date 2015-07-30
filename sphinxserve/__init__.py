@@ -14,8 +14,10 @@ from gevent import sleep, spawn, killall
 from gevent.event import Event
 from gevent.pywsgi import WSGIServer
 from loadconfig import Config
-from loadconfig.lib import Run, run
+from loadconfig.lib import capture_stream, Run, run
+import logging as log
 import os
+from sphinx import build_main
 from sphinxserve.lib import clean_subproc, last
 from static import Cling
 import sys
@@ -132,10 +134,13 @@ class SphinxServer(object):
 
     def render(self):
         '''Render and listen for doc changes (watcher events)'''
+        spath = self.c.sphinx_path
         while True:
             self.watch_ev.wait()  # Wait for docs changes
             self.watch_ev.clear()
-            run('sphinx-build {0} {0}/html'.format(self.c.sphinx_path))
+            with capture_stream() as stdout:
+                build_main(['sphinx-build', spath, spath + '/html'])
+            log.debug(stdout.getvalue())
             self.render_ev.set()
 
     def browse(self):
@@ -147,13 +152,16 @@ class SphinxServer(object):
                 # xdotool return a list of posible windows. Get the last one.
                 browser_wid = last(run("xdotool search --onlyvisible "
                     "--class '{}'".format(browser_name)).split())
+                log.debug('Browser id: {}'.format(browser_wid))
                 if not browser_wid:
                     sleep(1)
                     continue
-                code = run('xdotool windowactivate {} 2>&1'.format(
-                    browser_wid)).code
-                if code == 0:  # browser window activated
+                ret = run('xdotool windowactivate {} 2>&1'.format(
+                    browser_wid))
+                if ret.code == 0:  # browser window activated
                     return browser_wid
+                else:
+                    log.debug(ret._r)
                 sleep(1)
 
         browser_wid = find_browser_window(self.c.browser_name)
@@ -182,9 +190,12 @@ class SphinxServer(object):
 
     def manage(self):
         '''Manage browser and sphinx docs renderer and server'''
-        ret = run('sphinx-build {0} {0}/html'.format(self.c.sphinx_path))
-        if ret.code != 0:
-            raise Exception(ret.stderr)
+        spath = self.c.sphinx_path
+        with capture_stream() as stdout, capture_stream('stderr') as stderr:
+            ret = build_main(['sphinx-build', spath, spath + '/html'])
+        if ret != 0:
+            sys.exit(stderr.getvalue())
+        log.debug(stdout.getvalue())
         workers = [spawn(self.serve), spawn(self.watch),
             spawn(self.render), spawn(self.browse)]
         self.browse_ev.wait()  # Wait until docs cannot be displayed
@@ -239,6 +250,8 @@ def serve(c):
 
 def main(args):
     c = Config(conf, args=args, version=__version__)
+    if c.debug:
+        log.root.setLevel(log.DEBUG)
     c.run(module='sphinxserve')
 
 if __name__ == "__main__":
