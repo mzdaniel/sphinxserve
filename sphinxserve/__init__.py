@@ -14,9 +14,9 @@ from gevent import sleep, spawn, killall
 from gevent.event import Event
 from gevent.pywsgi import WSGIServer
 from loadconfig import Config
-from loadconfig.lib import first, Run, run
+from loadconfig.lib import Run, run
 import os
-from sphinxserve.lib import clean_subproc
+from sphinxserve.lib import clean_subproc, last
 from static import Cling
 import sys
 from textwrap import dedent
@@ -145,9 +145,8 @@ class SphinxServer(object):
             '''Block until a browser is found'''
             while True:
                 # xdotool return a list of posible windows. Get the last one.
-                browser_wid = first(run(
-                    'xdotool search --desktop 0 --class "{}"'.format(
-                        browser_name)).split()[-1:])
+                browser_wid = last(run("xdotool search --onlyvisible "
+                    "--class '{}'".format(browser_name)).split())
                 if not browser_wid:
                     sleep(1)
                     continue

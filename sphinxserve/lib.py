@@ -5,7 +5,7 @@ import gevent
 from gevent import signal, sleep, Timeout
 from loadconfig.lib import exc, run
 import os
-from signal import SIGTERM
+from signal import SIGINT, SIGTERM
 import socket
 
 
@@ -25,6 +25,7 @@ def clean_subproc():
     with exc(OSError):
         os.setpgrp()
     signal(SIGTERM, sigterm_hdl)
+    signal(SIGINT, sigterm_hdl)
     atexit.register(_term_children)
 
 
@@ -48,6 +49,15 @@ def check_host(host, port=22, timeout=1, recv=False):
             finally:
                 sock.close()
     return not bool(e())
+
+
+def last(l):
+    '''Get last element of a list or generator. Return None if empty.
+
+    >>> last([1,2,3])
+    3
+    '''
+    return next(reversed(list(l)), None)
 
 
 def retry(func, args=[], kwargs={}, sleep=0, count=5, hide_exc=False,
