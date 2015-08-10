@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-'''sphinxserve renders sphinx docs when detecting file changes.
+'''sphinxserve render sphinx docs when detecting file changes.
 
 usage: sphinxserve [-h] {serve,install,uninstall} ...'''
 
@@ -8,18 +8,16 @@ __version__ = '0.6.1.dev0'
 __author__ = 'Daniel Mizyrycki'
 
 import gevent.monkey
-gevent.monkey.patch_all()  # noqa
+gevent.monkey.patch_all()
 
-from gevent import sleep, spawn, killall
 from gevent.event import Event
-from gevent.pywsgi import WSGIServer
+from gevent import spawn, joinall
 from loadconfig import Config
-from loadconfig.lib import capture_stream, Run, run
+from loadconfig.lib import capture_stream, Run
 import logging as log
 import os
 from sphinx import build_main
-from sphinxserve.lib import clean_subproc, last
-from static import Cling
+from sphinxserve.lib import cleanup_on_signals, Webserver
 import sys
 from textwrap import dedent
 from time import time
@@ -27,7 +25,6 @@ from time import time
 conf = '''\
     app:            sphinxserve
     app_socket:     localhost:8888
-    app_browser:    firefox|iceweasel|chromium|chrome|opera
     app_user:       1000
     docker_image:   mzdaniel/sphinxserve
     extensions:     [rst, rst~, txt, txt~]
@@ -35,12 +32,10 @@ conf = '''\
     clg:
         prog: $app
         description: |
-            $app $version renders sphinx docs when detecting file changes.
-            It automatically opens a new tab on the browser when launched.
-            It uses gevent and static for serving the website and inotifywait
-            for recursively monitor changes on rst and txt files.
-            Dependencies can be satisfied intalling inotify and xdotool system
-            packages, or with docker using sphinxserve install command.
+            $app $version renders sphinx docs when detecting file changes and
+            serve them by default on localhost:8888. It uses gevent and flask
+            for serving the website and inotifywait for recursively monitor
+            changes on rst and txt files.
         default_cmd: serve
         subparsers:
             serve:
@@ -50,10 +45,6 @@ conf = '''\
                         short: d
                         action: store_true
                         default: __SUPPRESS__
-                    browser_name:
-                        short: b
-                        help: browser name where to open sphinx pages
-                        default: $app_browser
                     uid:
                         short: u
                         type: int
@@ -77,6 +68,7 @@ conf = '''\
                 help: |
                     print commands for docker installation on ~/bin/$app
                       Use as:  docker run $docker_image install | bash
+                               ~/bin/$app [SPHINX_PATH]
                 options: *options
                 args: *args
             uninstall:
@@ -93,27 +85,21 @@ os.environ['PATH'] = '/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'
 
 class SphinxServer(object):
     '''Coordinate sphinx greenlets.
-    start method render sphinx pages, initialize and give control to the
-    greenlets. The greenlets serve the pages, launch and refresh the browser
-    when changes on sphinx data is detected until browser_manage detect the
-    browser was closed.
+    manage method render sphinx pages, initialize and give control to serve,
+    watch and render greenlets.
     '''
     def __init__(self, c):
         self.c = c
         self.watch_ev = Event()
         self.render_ev = Event()
-        self.browse_ev = Event()
-        self.watchproc = None
 
     def serve(self):
-        '''Serve web requests from path as soon docs are ready'''
-        app = Cling('{}/html'.format(self.c.sphinx_path))
+        '''Serve web requests from path as soon docs are ready.
+        Reload remote browser when updates are rendered using websockets
+        '''
         host, port = self.c.socket.split(':')
-        log = 'default' if self.c.debug else None
-        try:
-            WSGIServer(('0.0.0.0', int(port)), app, log=log).serve_forever()
-        except Exception as e:
-            raise SystemExit(e)
+        server = Webserver(self.c.sphinx_path, host, port, self.render_ev)
+        server.run()
 
     def watch(self):
         '''Watch path signalling render when rst files change'''
@@ -122,6 +108,7 @@ class SphinxServer(object):
             format(self.c.sphinx_path))
         while True:
             with Run(CMD, async=True) as proc:
+                cleanup_on_signals(proc.stop)
                 filename = proc.get_output()[:-1]
             # Ignore changes in paths that dont have any of the extensions
             if filename.split('.')[-1] not in self.c.extensions:
@@ -133,7 +120,8 @@ class SphinxServer(object):
             self.watch_ev.set()
 
     def render(self):
-        '''Render and listen for doc changes (watcher events)'''
+        '''Render and listen for doc changes (watcher events)
+        '''
         spath = self.c.sphinx_path
         while True:
             self.watch_ev.wait()  # Wait for docs changes
@@ -143,64 +131,17 @@ class SphinxServer(object):
             log.debug(stdout.getvalue())
             self.render_ev.set()
 
-    def browse(self):
-        '''Wait and reload browser. Signal teardown when browser closes.'''
-
-        def find_browser_window(browser_name):
-            '''Block until a browser is found'''
-            while True:
-                # xdotool return a list of posible windows. Get the last one.
-                browser_wid = last(run("xdotool search --onlyvisible "
-                    "--class '{}'".format(browser_name)).split())
-                log.debug('Browser id: {}'.format(browser_wid))
-                if not browser_wid:
-                    sleep(1)
-                    continue
-                ret = run('xdotool windowactivate {} 2>&1'.format(
-                    browser_wid))
-                if ret.code == 0:  # browser window activated
-                    return browser_wid
-                else:
-                    log.debug(ret._r)
-                sleep(1)
-
-        browser_wid = find_browser_window(self.c.browser_name)
-        # Open a new tab with docs
-        CMD = dedent('''\
-            xdotool key "ctrl+t"
-            xdotool type {}
-            xdotool key Return
-            ''').format(self.c.socket)
-        run(CMD)
-        while True:
-            self.render_ev.clear()
-            event = self.render_ev.wait(2)
-            if run('xdotool getwindowname {}'.format(browser_wid)).code:
-                self.browse_ev.set()  # Browser was closed. signal teardown
-            if not event:
-                continue
-            # Reload browser page
-            cur_window = run('xdotool getactivewindow').stdout
-            CMD = dedent('''\
-                xdotool windowactivate {}
-                xdotool key "ctrl+r"
-                xdotool windowactivate {}
-                ''').format(browser_wid, cur_window)
-            run(CMD)
-
     def manage(self):
-        '''Manage browser and sphinx docs renderer and server'''
+        '''Manage web server, watcher and sphinx docs renderer
+        '''
         spath = self.c.sphinx_path
         with capture_stream() as stdout, capture_stream('stderr') as stderr:
             ret = build_main(['sphinx-build', spath, spath + '/html'])
         if ret != 0:
             sys.exit(stderr.getvalue())
         log.debug(stdout.getvalue())
-        workers = [spawn(self.serve), spawn(self.watch),
-            spawn(self.render), spawn(self.browse)]
-        self.browse_ev.wait()  # Wait until docs cannot be displayed
-        # Cleanup
-        killall(workers)
+        workers = [spawn(self.serve), spawn(self.watch), spawn(self.render)]
+        joinall(workers)
 
 
 def check_dependencies(c):
@@ -208,8 +149,6 @@ def check_dependencies(c):
         raise SystemExit('conf.py not found on {}'.format(c.sphinx_path))
     if not os.path.exists('/usr/bin/inotifywait'):
         raise SystemExit('inotify package not installed.')
-    if not os.path.exists('/usr/bin/xdotool'):
-        raise SystemExit('xdotool package not installed.')
 
 
 def install(c):
@@ -220,7 +159,6 @@ def install(c):
 
         SPHINX_PATH=\${1:-\$PWD}
         USERID="$uid"
-        DESKTOP_ARGS='-v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY=:0.0'
         SOCKET="$socket"
         APP_PORT=\${SOCKET#*:}
 
@@ -230,9 +168,8 @@ def install(c):
 
         [ "\$1" == "-h" ] || [ "\$1" == "--help" ] && usage
 
-        docker run -it -u \$USERID -v \$SPHINX_PATH:/host \$DESKTOP_ARGS \
-            -p \$APP_PORT:\$APP_PORT $docker_image \
-            -s \$SOCKET -b "$browser_name" /host
+        docker run -it -u \$USERID -v \$SPHINX_PATH:/host  \
+            -p \$APP_PORT:\$APP_PORT $docker_image -s 0.0.0.0:\$APP_PORT /host
         EOF
         chmod 755 ~/bin/$app
         ''')))
@@ -244,7 +181,6 @@ def uninstall(c):
 
 def serve(c):
     check_dependencies(c)
-    clean_subproc()
     SphinxServer(c).manage()
 
 
