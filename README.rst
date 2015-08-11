@@ -22,7 +22,9 @@ concurrency and event coordination, `flask`_ for web communication, Sphinx
 for reStructucturedText rendering and of course `Python`_. sphinxserve used to
 control browser reloading with xdotool, introducing a complex system tool
 dependency. On release 0.7, sphinxserve decouples from this system dependency
-using instead flask-sockets python package. It also upgraded its filesystem
+using instead flask-sockets python package. The tradeoff here was to
+temporarily drop python3 support until the gevent ecosystem officially
+supports python3 which should be soon. sphinxserve also upgraded its filesystem
 notification tool to watchdog, removing another system dependency and making
 the code more generic, cleaner and closer to run in other operating systems.
 
