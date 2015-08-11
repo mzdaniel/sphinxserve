@@ -13,14 +13,14 @@ gevent.monkey.patch_all()
 from gevent.event import Event
 from gevent import spawn, joinall
 from loadconfig import Config
-from loadconfig.lib import capture_stream, Run
+from loadconfig.lib import capture_stream
 import logging as log
 import os
 from sphinx import build_main
-from sphinxserve.lib import cleanup_on_signals, Webserver
+from sphinxserve.lib import read_event, Webserver
 import sys
 from textwrap import dedent
-from time import time
+
 
 conf = '''\
     app:            sphinxserve
@@ -32,9 +32,9 @@ conf = '''\
     clg:
         prog: $app
         description: |
-            $app $version renders sphinx docs when detecting file changes and
+            $app $version render sphinx docs when detecting file changes and
             serve them by default on localhost:8888. It uses gevent and flask
-            for serving the website and inotifywait for recursively monitor
+            for serving the website and watchdog for recursively monitor
             changes on rst and txt files.
         default_cmd: serve
         subparsers:
@@ -102,21 +102,11 @@ class SphinxServer(object):
         server.run()
 
     def watch(self):
-        '''Watch path signalling render when rst files change'''
-        t_prev = 0
-        CMD = ('inotifywait -rq -e modify,close_write,moved_from,delete {}'.
-            format(self.c.sphinx_path))
-        while True:
-            with Run(CMD, async=True) as proc:
-                cleanup_on_signals(proc.stop)
-                filename = proc.get_output()[:-1]
-            # Ignore changes in paths that dont have any of the extensions
-            if filename.split('.')[-1] not in self.c.extensions:
-                continue
-            t = time()
-            if t - t_prev < 1:  # Ignore events within 1 second
-                continue
-            t_prev = t
+        '''Watch sphinx_path signalling render when rst files change
+        '''
+        for fs_event in read_event(self.c.sphinx_path, self.c.extensions):
+            log.debug('filesystem event: {} {}'.format(
+                fs_event, fs_event.ev_name))
             self.watch_ev.set()
 
     def render(self):
@@ -147,8 +137,6 @@ class SphinxServer(object):
 def check_dependencies(c):
     if not os.path.exists('{}/conf.py'.format(c.sphinx_path)):
         raise SystemExit('conf.py not found on {}'.format(c.sphinx_path))
-    if not os.path.exists('/usr/bin/inotifywait'):
-        raise SystemExit('inotify package not installed.')
 
 
 def install(c):

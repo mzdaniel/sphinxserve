@@ -2,3 +2,4 @@ flask-sockets>=0.1
 gevent>=1.1b2
 loadconfig>=0.1
 sphinx>=1.2.3
+watchdog>=0.8.3

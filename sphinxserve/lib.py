@@ -6,13 +6,16 @@ import gevent
 from gevent import sleep
 from gevent.pywsgi import WSGIServer
 from geventwebsocket.handler import WebSocketHandler
-from loadconfig.lib import exc
+from loadconfig.lib import exc, Run
 from loadconfig.py6 import text_type
+import logging as log
+from os.path import dirname
 import re
 from signal import SIGINT, SIGTERM
 import socket
 import sys
 from textwrap import dedent
+import watchdog
 
 
 class Webserver(object):
@@ -59,6 +62,28 @@ class Webserver(object):
 
         WSGIServer((self.host, int(self.port)), app,
             handler_class=WebSocketHandler).serve_forever()
+
+
+def read_event(path, extensions):
+    '''Return iterator with filename and filesysytem event tuple.
+    '''
+    patterns = ';'.join(['*.' + e for e in extensions])
+    PYTHONPATH = dirname(dirname(watchdog.__file__))
+    watchmedo_path = dirname(watchdog.__file__) + '/watchmedo.py'
+    CMD = "PYTHONPATH={} PYTHONUNBUFFERED=1 python2 {} log {} -p '{}'".format(
+        PYTHONPATH, watchmedo_path, path, patterns)
+    log.debug(CMD)
+    with Run(CMD, async=True) as proc:
+        cleanup_on_signals(proc.terminate)
+        while True:
+            line = proc.stdout.readline()
+            if not line:  # exit program if stdout was closed
+                log.debug(proc.stderr.read())
+                log.debug('filesystem watchdog empty. Stopping now.')
+                sys.exit(0)
+            ev_path, ev_name = re.sub("^(.+)\(.+src_path='(.+)'.+",
+                r'\2|\1', line).split('|')
+            yield (Ret(ev_path, ev_name=ev_name))
 
 
 class Ret(text_type):
