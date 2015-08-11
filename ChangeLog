@@ -1,0 +1,21 @@
+CHANGES
+=======
+
+0.7
+---
+
+* release 0.7
+* Clarify python3 status
+* Add tox pex and docker builds. Improve README.rst
+* Refactor filesystem event detection with watchdog python package
+* cleanup tox.ini
+* Refactor page reloading, replacing xdotool system dependency with websockets
+* Use sphinx building API. Add debugging
+* Improve browser detection. Add interrupt signal cleanup
+* dev version update
+
+
+0.6
+---
+
+* Initial public release
