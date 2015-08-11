@@ -3,8 +3,8 @@
 from flask import Flask
 from flask_sockets import Sockets
 import gevent
-from gevent import sleep
 from gevent.pywsgi import WSGIServer
+from gevent import sleep
 from geventwebsocket.handler import WebSocketHandler
 from loadconfig.lib import exc, Run
 from loadconfig.py6 import text_type
@@ -67,11 +67,20 @@ class Webserver(object):
 def read_event(path, extensions):
     '''Return iterator with filename and filesysytem event tuple.
     '''
-    patterns = ';'.join(['*.' + e for e in extensions])
-    PYTHONPATH = dirname(dirname(watchdog.__file__))
-    watchmedo_path = dirname(watchdog.__file__) + '/watchmedo.py'
-    CMD = "PYTHONPATH={} PYTHONUNBUFFERED=1 python2 {} log {} -p '{}'".format(
-        PYTHONPATH, watchmedo_path, path, patterns)
+    def wd_cmd(path, extensions):
+        '''Return watchmedo command line for pex compatibility
+        '''
+        patterns = ';'.join(['*.' + e for e in extensions])
+        watchmedo_path = dirname(watchdog.__file__) + '/watchmedo.py'
+        PYTHONPATH = dirname(dirname(watchdog.__file__))
+        for dep in ['argh', 'pathtools', 'watchdog', 'yaml']:
+            PYTHONPATH += ':{}'.format(
+                dirname(dirname(__import__(dep).__file__)))
+        return ("PYTHONPATH={} PYTHONUNBUFFERED=1 python2 {} "
+            "log {} -p '{}'".format(
+                PYTHONPATH, watchmedo_path, path, patterns))
+
+    CMD = wd_cmd(path, extensions)
     log.debug(CMD)
     with Run(CMD, async=True) as proc:
         cleanup_on_signals(proc.terminate)

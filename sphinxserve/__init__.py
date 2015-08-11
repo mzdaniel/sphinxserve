@@ -75,8 +75,10 @@ conf = '''\
                 help: print commands for uninstalling $app
     checkconfig: |
         import os
+        from os.path import abspath
         if not self.sphinx_path:
            self.sphinx_path = os.getcwd()
+        self.sphinx_path = abspath(self.sphinx_path)
     '''
 
 
