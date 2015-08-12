@@ -35,8 +35,9 @@ RUN \
         ca-certificates build-essential python-dev && \
     curl https://bootstrap.pypa.io/get-pip.py | python && \
     pip install wheel pex && \
-    pip wheel --wheel-dir=/tmp/pkg sphinxserve "gevent>=1.1b2" "sphinx<1.3" \
-        sphinx_bootstrap_theme sphinxjp.themes.revealjs sphinx_rtd_theme && \
+    pip wheel --wheel-dir=/tmp/pkg sphinxserve "gevent>=1.1b2" \
+        "sphinx<1.3" "sphinx_rtd_theme<0.1.8" sphinx_bootstrap_theme \
+        sphinxjp.themes.revealjs && \
     cd /tmp/pkg; pex -v --disable-cache --no-index -f . -c sphinxserve \
         -o /sphinxserve * && \
     sha1sum /sphinxserve | tee /sphinxserve.sha1 && \
@@ -46,4 +47,5 @@ RUN \
         /usr/lib/python2.7 /usr/local/lib/python2.7 /var/lib/apt \
         /var/lib/dpkg /root/.cache
 
-ENTRYPOINT ["/bin/cat /sphinxserve"]
+ENTRYPOINT ["/bin/cat"]
+CMD ["/sphinxserve"]

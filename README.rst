@@ -12,6 +12,18 @@ beautiful documentation. The goal of sphinxserve is to make them more
 accessible, interactive, and convenient to use.
 
 
+Examples of projects using sphinx
+=================================
+
+========================   ================================================
+Sphinx                     http://sphinx-doc.org
+Read The Docs              https://read-the-docs.readthedocs.org
+Projects using sphinx      http://sphinx-doc.org/examples.html
+sphinxjp.themes.revealjs   http://pythonhosted.org/sphinxjp.themes.revealjs
+loadconfig                 http://loadconfig.glidelink.net/docs
+========================   ================================================
+
+
 Design considerations
 =====================
 
@@ -33,11 +45,27 @@ Installation
 ============
 
 sphinxserve can be installed either as a `python package`_, or as a `docker`_
-application. A pex `python executable`_ will be available.
+application. On linux, it can also be installed as a pex `python executable`_
 
 .. _python package: https://pypi.python.org/pypi/sphinxserve
-.. _docker app: https://registry.hub.docker.com/u/mzdaniel/sphinxserve
-.. _Python executable: https://github.com/mzdaniel/sphinxserve
+.. _docker app: https://hub.docker.com/r/mzdaniel/sphinxserve
+.. _Python executable: https://github.com/mzdaniel/sphinxserve/releases
+
+
+Python executable (PEX)
+~~~~~~~~~~~~~~~~~~~~~~~
+
+This is the easiest (no compilation or fancy tooling needed) and smallest
+(~9 MB) way to install sphinxserve using the excellent `PEX`_ tool. In itself,
+it is a zipfile containing all python package dependencies and only requires
+the python interpreter. This pex is verified to work at least on Debian>=7,
+Ubuntu>=14, Centos>=7 and Arch distros.
+
+System dependencies: python>=2.7,<3 and a web browser supporting websockets
+                        (Firefox, Chrome, etc)
+
+    $ wget -O ~/bin/sphinxserve https://github.com/mzdaniel/sphinxserve/releases/download/0.7.1/sphinxserve
+    $ chmod 755 ~/bin/sphinxserve
 
 
 Python package
@@ -50,7 +78,7 @@ pip automatically downloads sphinxserve and its python dependencies, compiles
 and builds wheel binary packages as needed and finally install sphinxserve
 using::
 
-    pip install sphinxserve
+    $ pip install sphinxserve
 
 
 Docker application
@@ -58,15 +86,19 @@ Docker application
 
 `Docker`_ is an extraordinary tool that simplifies the entire dependency tree
 by including it in a system image. This makes the installation experience
-much more pleasant.
+much more pleasant and the ability to run on OSX, Windows and Linux with the
+same image, assuming proper setup of the docker network and volume. Another
+advantage is that a running image cannot see your filesystem by default.
+Sharing directories and which ones is an explicit setup. This method is
+verified to work on Linux so far.
 
 System dependencies: docker and a browser
 
-This installation command automatically downloads sphinxserve image and
-creates a small shell script ~/bin/sphinxserve that simplifies the running
-interface::
+This installation command automatically downloads sphinxserve image (~40 MB)
+and creates a small shell script ~/bin/sphinxserve that simplifies the running
+interface with the following command::
 
-    $ docker run mzdaniel/sphinx install | bash
+    $ docker run mzdaniel/sphinxserve install | bash
 
 
 Launching
