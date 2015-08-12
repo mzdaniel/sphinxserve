@@ -1,6 +1,13 @@
 CHANGES
 =======
 
+0.7.1
+-----
+
+* release 0.7.1
+* Improve pex Dockerfile. Expand pex and docker documentation
+
+
 0.7
 ---
 
@@ -13,7 +20,6 @@ CHANGES
 * Use sphinx building API. Add debugging
 * Improve browser detection. Add interrupt signal cleanup
 * dev version update
-
 
 0.6
 ---
