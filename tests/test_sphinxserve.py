@@ -16,13 +16,10 @@ from gevent import joinall, sleep, spawn
 from loadconfig import Config
 from loadconfig.lib import tempdir, capture_stream
 from multiprocessing import Process
-from os import getpid, kill
-from psutil import Process as ps
 from pytest import yield_fixture
 from requests import get
-from signal import SIGTERM
 from sphinxserve import main
-from sphinxserve.lib import check_host, retry, Timeout
+from sphinxserve.lib import check_host, fs_event_ctx, Ret, Timeout
 
 
 @yield_fixture
@@ -87,7 +84,31 @@ def test_sphinxserve_Timeout():
     assert timeout.expired is True
 
 
+def test_fs_event_ctx():
+    with tempdir() as tmpdir, fs_event_ctx(tmpdir, ['rst']) as fs_event:
+        filename = tmpdir + '/test.rst'
+        open(filename, 'w')
+        assert filename == next(fs_event)
+
+        filename = tmpdir + '/test2.rst'
+        open(filename, 'w')
+        assert filename == next(fs_event)
+
+
 def test_functional(serve_ctx):
+    def append(line, filename):
+        '''append line to filename'''
+        with open(filename, 'a') as fh:
+            fh.write(line + '\n')
+
+    def get_page(url, timestamp):
+        for x in range(10):  # give up to 3 sec to do the test
+            r = get(url)
+            if timestamp != r.headers['last-modified']:
+                break
+            sleep(0.3)
+        return Ret(r.text, timestamp=r.headers['last-modified'])
+
     # Test main header in rendered page
     r = get('http://' + serve_ctx.socket)
     assert 'Test sphinxserve' in r.text
@@ -96,26 +117,11 @@ def test_functional(serve_ctx):
     # Test doc change detection and change reflected in new rendering
     filename = serve_ctx.tmpdir + '/index.rst'
     line = 'Detect doc change test'
-    with open(filename, 'a') as fh:
-        fh.write(line + '\n')
+    append(line, filename)
+    ret = get_page('http://' + serve_ctx.socket, timestamp)
+    assert line in ret
 
-    for x in range(10):  # give up to 3 sec to do the test
-        r = get('http://' + serve_ctx.socket)
-        if timestamp != r.headers['last-modified']:
-            break
-        sleep(0.3)
-    assert line in r.text
-
-
-def test_clean_subproc(serve_ctx):
-    def active():
-        '''Return True if inotify is active'''
-        procs = ps(getpid()).children(recursive=True)
-        return bool([n for n in procs if 'watchmedo' in ' '.join(n.cmdline())])
-
-    # Ensure inotify is active within 3 seconds
-    assert retry(active, count=10, sleep=0.3, success=bool)
-
-    # Ensure terminating sphinxserve also terminates inotify
-    kill(serve_ctx.proc.pid, SIGTERM)
-    assert not retry(active, count=10, sleep=0.3, success=lambda x: not(x))
+    line = 'New doc change test'
+    append(line, filename)
+    ret = get_page('http://' + serve_ctx.socket, ret.timestamp)
+    assert line in ret

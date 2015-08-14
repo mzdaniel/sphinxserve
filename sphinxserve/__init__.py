@@ -17,7 +17,7 @@ from loadconfig.lib import capture_stream
 import logging as log
 import os
 from sphinx import build_main
-from sphinxserve.lib import read_event, Webserver
+from sphinxserve.lib import fs_event_ctx, Webserver
 import sys
 from textwrap import dedent
 
@@ -106,10 +106,10 @@ class SphinxServer(object):
     def watch(self):
         '''Watch sphinx_path signalling render when rst files change
         '''
-        for fs_event in read_event(self.c.sphinx_path, self.c.extensions):
-            log.debug('filesystem event: {} {}'.format(
-                fs_event, fs_event.ev_name))
-            self.watch_ev.set()
+        with fs_event_ctx(self.c.sphinx_path, self.c.extensions) as fs_ev_iter:
+            for event in fs_ev_iter:
+                log.debug('filesystem event: {}'.format(event, event.ev_name))
+                self.watch_ev.set()
 
     def render(self):
         '''Render and listen for doc changes (watcher events)
