@@ -13,12 +13,9 @@ from gevent.pywsgi import WSGIServer
 from gevent.queue import Queue
 from gevent import sleep
 from geventwebsocket.handler import WebSocketHandler
-from loadconfig.lib import exc
 from loadconfig.py6 import text_type
 import re
-from signal import SIGINT, SIGTERM
 import socket
-import sys
 from textwrap import dedent
 from watchdog.events import PatternMatchingEventHandler
 from watchdog.observers import Observer
@@ -154,26 +151,3 @@ def check_host(host, port=22, timeout=1, recv=False):
             finally:
                 sock.close()
     return not ctx.expired
-
-
-def cleanup_on_signals(func):
-    '''Call func on signals and exit'''
-    def exit():
-        func()
-        sys.exit(0)
-    gevent.signal(SIGINT, exit)
-    gevent.signal(SIGTERM, exit)
-
-
-def retry(func, args=[], kwargs={}, sleep=0, count=5, hide_exc=False,
- success=lambda x: True):
-    '''Retry and return func(args) up to count times'''
-    for i in range(count):
-        if i:
-            gevent.sleep(sleep)
-        with exc(Exception) as e:
-            retval = func(*args, **kwargs)
-            if success(retval):
-                return retval
-    if e() and not hide_exc:
-        raise e()
