@@ -16,9 +16,13 @@ from geventwebsocket.handler import WebSocketHandler
 from loadconfig.py6 import text_type
 import re
 import socket
+from sys import platform
 from textwrap import dedent
 from watchdog.events import PatternMatchingEventHandler
 from watchdog.observers import Observer
+
+if platform.startswith('win'):
+    from watchdog.observers.polling import PollingObserver as Observer  # noqa
 
 
 class Webserver(object):

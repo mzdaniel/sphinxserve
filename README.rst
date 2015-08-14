@@ -36,9 +36,10 @@ control browser reloading with xdotool, introducing a complex system tool
 dependency. On release 0.7, sphinxserve decouples from this system dependency
 using instead flask-sockets python package. The tradeoff here was to
 temporarily drop python3 support until the gevent ecosystem officially
-supports python3 which should be soon. sphinxserve also upgraded its filesystem
-notification tool to watchdog, removing another system dependency and making
-the code more generic, cleaner and closer to run in other operating systems.
+supports python3 which should be soon. Also, the filesystem notification tool
+was upgraded to watchdog, removing another system dependency and making
+the code more generic and cleaner. With these changes, as of release 0.7.2,
+sphinxserve is able to run in other platforms as Windows for example.
 
 
 Installation
@@ -61,8 +62,8 @@ it is a zipfile containing all python package dependencies and only requires
 the python interpreter. This pex is verified to work at least on Debian>=7,
 Ubuntu>=14, Centos>=7 and Arch distros.
 
-System dependencies: python>=2.7,<3 and a web browser supporting websockets
-                        (Firefox, Chrome, etc)
+System dependencies: glibc linux>=3, python>=2.7,<3 and a web browser
+supporting websockets (Firefox, Chrome, etc)::
 
     $ wget -O ~/bin/sphinxserve https://github.com/mzdaniel/sphinxserve/releases/download/0.7.1/sphinxserve
     $ chmod 755 ~/bin/sphinxserve
@@ -71,12 +72,16 @@ System dependencies: python>=2.7,<3 and a web browser supporting websockets
 Python package
 ~~~~~~~~~~~~~~
 
-System dependencies: python==2.7, pip>=7, the C toolchain (package names
-dependent on linux distro) to compile gevent and a web browser.
+Linux system dependencies: glibc linux>=3, python>=2.7,<3, the C toolchain
+(package names dependent on linux distro) to compile gevent and a web browser
+supporting websockets. pip automatically downloads sphinxserve and its python
+dependencies, compiles and builds wheel binary packages as needed and finally
+install sphinxserve.
 
-pip automatically downloads sphinxserve and its python dependencies, compiles
-and builds wheel binary packages as needed and finally install sphinxserve
-using::
+Windows system dependencies: Verified to work on Windows 7, python >=2.7,<3 and
+a web browser supporting websockets with just pip installing.
+
+In all systems::
 
     $ pip install sphinxserve
 
@@ -92,7 +97,7 @@ advantage is that a running image cannot see your filesystem by default.
 Sharing directories and which ones is an explicit setup. This method is
 verified to work on Linux so far.
 
-System dependencies: docker and a browser
+System dependencies: docker and a web browser supporting websockets.
 
 This installation command automatically downloads sphinxserve image (~40 MB)
 and creates a small shell script ~/bin/sphinxserve that simplifies the running
