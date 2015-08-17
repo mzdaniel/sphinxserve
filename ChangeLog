@@ -1,6 +1,16 @@
 CHANGES
 =======
 
+0.7.2
+-----
+
+* release 0.7.2
+* Make sphinxserve Windows compatible. Update documentation
+* cleanup
+* Make watchdog gevent cooperative. Update tests
+* dev version update
+
+
 0.7.1
 -----
 
@@ -20,6 +30,7 @@ CHANGES
 * Use sphinx building API. Add debugging
 * Improve browser detection. Add interrupt signal cleanup
 * dev version update
+
 
 0.6
 ---
