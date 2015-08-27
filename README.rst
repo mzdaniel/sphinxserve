@@ -2,6 +2,17 @@
 sphinxserve
 ===========
 
+.. image:: https://travis-ci.org/mzdanieltest/sphinxserve.svg?branch=master
+    :target: https://travis-ci.org/mzdanieltest/sphinxserve
+    :alt: [Build tests]
+.. image:: https://img.shields.io/badge/github-repo-yellowgreen.jpg
+    :target: https://github.com/mzdaniel/sphinxserve
+    :alt: [Code repo]
+.. image:: https://img.shields.io/pypi/v/sphinxserve.jpg
+    :target: https://pypi.python.org/pypi/sphinxserve
+    :alt: [Pypi package]
+
+
 sphinxserve is a tool to effectively document projects
 ======================================================
 
