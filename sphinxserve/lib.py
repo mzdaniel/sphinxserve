@@ -13,7 +13,7 @@ from gevent.pywsgi import WSGIServer
 from gevent.queue import Queue
 from gevent import sleep
 from geventwebsocket.handler import WebSocketHandler
-from loadconfig.py6 import text_type
+from loadconfig.lib import Ret
 import re
 import socket
 from sys import platform
@@ -53,10 +53,15 @@ class Webserver(object):
             return app.send_static_file('index.html')
 
         @app.after_request
-        def after_request(response):  # Add reload javascript
+        def after_request(response):
+            '''Add reload javascript and remove googleapis fonts'''
             response.direct_passthrough = False
             if response.content_type.startswith('text/html'):
                 response.data = re.sub('(</head>)', r'{}\1'.format(reload_js),
+                    response.data, flags=re.IGNORECASE)
+            if response.content_type.startswith('text/css'):
+                response.data = re.sub(
+                    '@import url\(.+fonts.googleapis.com.+\);', '',
                     response.data, flags=re.IGNORECASE)
             return response
 
@@ -100,26 +105,6 @@ def fs_event_ctx(path, extensions):
     observer.stop()
     del observer
     del evh
-
-
-class Ret(text_type):
-    r'''Return class.
-    arg[0] is the string value for the Ret object.
-    kwargs are feed as attributes.
-
-    >>> ret = Ret('OK', code=0)
-    >>> ret == 'OK'
-    True
-    >>> ret.code
-    0
-    '''
-    def __new__(cls, string, **kwargs):
-        ret = super(Ret, cls).__new__(cls, text_type(string))
-        for k in kwargs:
-            setattr(ret, k, kwargs[k])
-        return ret
-
-    _r = property(lambda self: self.__dict__)
 
 
 class Timeout(gevent.Timeout):
