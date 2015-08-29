@@ -1,6 +1,15 @@
 CHANGES
 =======
 
+0.7.3
+-----
+
+* Remove external font requests. Cleanup
+* Add README.rst badges
+* Add default conf.py and index.rst. Improve cli processing and documentation
+* Add travis-ci
+
+
 0.7.2
 -----
 
