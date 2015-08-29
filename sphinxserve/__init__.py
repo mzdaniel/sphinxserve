@@ -13,9 +13,10 @@ gevent.monkey.patch_all()
 from gevent.event import Event
 from gevent import spawn, joinall
 from loadconfig import Config
-from loadconfig.lib import capture_stream
+from loadconfig.lib import capture_stream, write_file
 import logging as log
 import os
+from os.path import exists
 from sphinx import build_main
 from sphinxserve.lib import fs_event_ctx, Webserver
 import sys
@@ -39,7 +40,9 @@ conf = '''\
         default_cmd: serve
         subparsers:
             serve:
-                help: serve sphinx docs
+                help: |
+                    serve sphinx docs. (For extra help, use:
+                        sphinxserve serve --help)
                 options: &options
                     debug:
                         short: d
@@ -49,7 +52,7 @@ conf = '''\
                         short: u
                         type: int
                         help: |
-                            numeric system user id for rendered pages.
+                            numeric system user id for rendered pages on Docker
                               (use "id" to retrieve it.  def: $app_user)
                         default: $app_user
                     socket:
@@ -80,9 +83,6 @@ conf = '''\
            self.sphinx_path = os.getcwd()
         self.sphinx_path = abspath(self.sphinx_path)
     '''
-
-
-os.environ['PATH'] = '/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'
 
 
 class SphinxServer(object):
@@ -136,49 +136,67 @@ class SphinxServer(object):
         joinall(workers)
 
 
-def check_dependencies(c):
-    if not os.path.exists('{}/conf.py'.format(c.sphinx_path)):
-        raise SystemExit('conf.py not found on {}'.format(c.sphinx_path))
+class Prog(object):
+    '''Execute cli options'''
 
+    def __init__(self, c):
+        self.c = c
 
-def install(c):
-    print(c.render(dedent('''\
-        mkdir -p ~/bin
-        cat > ~/bin/$app << EOF
-        #!/bin/bash
+    def check_dependencies(self):
+        '''Create sphinx conf.py and index.rst if necessary'''
+        path = self.c.sphinx_path
+        if not exists(path):
+            os.makedirs(path)
+        if not exists(path + '/index.rst'):
+            data = dedent('''\
+                Index rst file
+                ==============
 
-        SPHINX_PATH=\${1:-\$PWD}
-        USERID="$uid"
-        SOCKET="$socket"
-        APP_PORT=\${SOCKET#*:}
+                This is the main reStructuredText page. It is meant as a
+                temporary example, ready to override.''')
+            write_file(path + '/index.rst', data)
+        if not exists(path + '/conf.py'):
+            write_file(path + '/conf.py', "master_doc = 'index'\n")
 
-        usage () {
-            echo "Usage: $app [-h] [SPHINX_PATH]    (default: \$PWD)"
-            exit 1; }
+    def install(self):
+        print(self.c.render(dedent('''\
+            mkdir -p ~/bin
+            cat > ~/bin/$app << EOF
+            #!/bin/bash
 
-        [ "\$1" == "-h" ] || [ "\$1" == "--help" ] && usage
+            SPHINX_PATH=\${1:-\$PWD}
+            USERID="$uid"
+            SOCKET="$socket"
+            APP_PORT=\${SOCKET#*:}
 
-        docker run -it -u \$USERID -v \$SPHINX_PATH:/host  \
-            -p \$APP_PORT:\$APP_PORT $docker_image -s 0.0.0.0:\$APP_PORT /host
-        EOF
-        chmod 755 ~/bin/$app
-        ''')))
+            usage () {
+                echo "Usage: $app [-h] [SPHINX_PATH]    (default: \$PWD)"
+                exit 1; }
 
+            [ "\$1" == "-h" ] || [ "\$1" == "--help" ] && usage
 
-def uninstall(c):
-    print(c.render('rm -f ~/bin/$app'))
+            docker run -it -u \$USERID -v \$SPHINX_PATH:/host  \
+                -p \$APP_PORT:\$APP_PORT $docker_image \
+                -s 0.0.0.0:\$APP_PORT /host
+            EOF
+            chmod 755 ~/bin/$app
+            ''')))
 
+    def uninstall(self):
+        print(self.c.render('rm -f ~/bin/$app'))
 
-def serve(c):
-    check_dependencies(c)
-    SphinxServer(c).manage()
+    def serve(self):
+        self.check_dependencies()
+        SphinxServer(self.c).manage()
 
 
 def main(args):
     c = Config(conf, args=args, version=__version__)
     if c.debug:
         log.root.setLevel(log.DEBUG)
-    c.run(module='sphinxserve')
+    # Run command selected from cli (corresponding to conf subparser, and
+    # Prog method. Eg: serve)
+    c.run(Prog)
 
 if __name__ == "__main__":
     main(sys.argv)
