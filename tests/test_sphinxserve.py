@@ -113,6 +113,8 @@ def test_functional(serve_ctx):
     r = get('http://' + serve_ctx.socket)
     assert 'Test sphinxserve' in r.text
     timestamp = r.headers['last-modified']
+    # Ensure sphinx detect rst timestamp changes
+    sleep(1)
 
     # Test doc change detection and change reflected in new rendering
     filename = serve_ctx.tmpdir + '/index.rst'
@@ -120,6 +122,7 @@ def test_functional(serve_ctx):
     append(line, filename)
     ret = get_page('http://' + serve_ctx.socket, timestamp)
     assert line in ret
+    sleep(1)
 
     line = 'New doc change test'
     append(line, filename)
