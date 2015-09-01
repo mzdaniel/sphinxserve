@@ -21,7 +21,7 @@ from textwrap import dedent
 from watchdog.events import PatternMatchingEventHandler
 from watchdog.observers import Observer
 
-if platform.startswith('win'):
+if platform.startswith('win') or platform.startswith('darwin'):
     from watchdog.observers.polling import PollingObserver as Observer  # noqa
 
 
