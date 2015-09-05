@@ -15,3 +15,14 @@ install:
 
 script:
   - tox
+  - SP=travis/build/mzdanieltest/sphinxserve/pex/scripts/sphinxserve; if [ "$TRAVIS_OS_NAME" == "linux" ]; then cp /home/$SP /tmp/sphinxserve-$TRAVIS_OS_NAME; else cp /Users/$SP /tmp/sphinxserve-$TRAVIS_OS_NAME; fi
+
+deploy:
+  provider: releases
+  api_key:
+    secure: KL/7n3ithRsSNjTJClL53SubqwXc2ynWRzf7s8+Rd6r95YHi6taT1e2IFWlkh6hsYRx/ECb9lD+n0j1eV0CIiRmiCgr12Rst7xAkV8oe+fFwUvLkcU+48zvtBafaecITsswm9ONPZUvjSLeEOpiBvy9IBgtFo8neIw5RrNPUwHoqFVq1AxK4dmurR7Z7j3kohnEjGcN1Cj7by7xCFzOJpRgpjNgnoVBS5dL+WbameeZD1ri6Y1PBOxbm0K249FFX0Rpik47EhlQinCkbxbhUXSVkyONBI7fDXKTJgN/qw6hpmTCm/9L5YOlDFUKqfEIODFRs3tO5x9FZljO4etuqcEQJ7XrdiatpWOYiQOX+70KjnSH9EPiDAWHk/tky8+zE/Il+ocOsThU+LsbmVM3SdMxnda6Wic+6K7Lob7jUDq334f2VJPfPbzEatJo8bRIg4hC3a8eM1ZYp+cqp9gzsOkQ15PGdE6cNpdDcZbWc74ys3aehJoUPU6xklaurKCeCgXocnR9ZmD59kxOWL1btpdD4w1wqdn0BwlZ2ZKnpw2A61j3ODe9Rni7p7sxnyGLR+dbzpQW0711C8/1ByYw83KvGmDLZ+ohzdLBdE2cGC8MeCTJE85RsOMo4W/hqfi4iq9/tO39DYoyTvZIXnureOyx5TzD22GCg8gsrPgwVtBY=
+  file: '/tmp/sphinxserve-$TRAVIS_OS_NAME'
+  skip_cleanup: true
+  on:
+    all_branches: true
+    repo: mzdanieltest/sphinxserve
