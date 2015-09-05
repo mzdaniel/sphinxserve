@@ -4,7 +4,7 @@
 
 usage: sphinxserve [-h] {serve,install,uninstall} ...'''
 
-__version__ = '0.7.4.dev0'
+__version__ = '0.7.4'
 __author__ = 'Daniel Mizyrycki'
 
 import gevent.monkey

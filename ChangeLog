@@ -1,6 +1,18 @@
 CHANGES
 =======
 
+0.7.4
+-----
+
+* release 0.7.4
+* Update README.rst
+* Add travis-ci/github pex release integration for linux and OSX
+* Add OSX testing to travis-ci
+* Ensure sphinx detect rst changes
+* Make sphinxserve OSX compatible
+* dev version update
+
+
 0.7.3
 -----
 
