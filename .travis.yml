@@ -1,10 +1,17 @@
 language: python
 
+matrix:
+  include:
+    - language: generic
+      os: osx
+      osx_image: beta-xcode6.3
+
 python:
   - 2.7
 
 install:
-  - pip install tox
+  - sudo bash -c 'python2.7 <(curl https://bootstrap.pypa.io/get-pip.py)'
+  - sudo pip install tox
 
 script:
   - tox
