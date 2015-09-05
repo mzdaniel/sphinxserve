@@ -49,15 +49,16 @@ using instead flask-sockets python package. The tradeoff here was to
 temporarily drop python3 support until the gevent ecosystem officially
 supports python3 which should be soon. Also, the filesystem notification tool
 was upgraded to watchdog, removing another system dependency and making
-the code more generic and cleaner. With these changes, as of release 0.7.2,
-sphinxserve is able to run in other platforms as Windows for example.
+the code more generic and cleaner. With these changes, as of release 0.7.4,
+sphinxserve is able to run in other platforms as OSX and Windows for example.
 
 
 Installation
 ============
 
 sphinxserve can be installed either as a `python package`_, or as a `docker`_
-application. On linux, it can also be installed as a pex `python executable`_
+application. On linux and OSX, it can also be installed as a pex
+`python executable`_
 
 .. _python package: https://pypi.python.org/pypi/sphinxserve
 .. _docker app: https://hub.docker.com/r/mzdaniel/sphinxserve
@@ -70,13 +71,24 @@ Python executable (PEX)
 This is the easiest (no compilation or fancy tooling needed) and smallest
 (~9 MB) way to install sphinxserve using the excellent `PEX`_ tool. In itself,
 it is a zipfile containing all python package dependencies and only requires
-the python interpreter. This pex is verified to work at least on Debian>=7,
-Ubuntu>=14, Centos>=7 and Arch distros.
+the python interpreter. This pex is verified to work at least in Debian>=7,
+Ubuntu>=14, Centos>=7 and Arch distros on Linux and in Yosemite on OSX.
+
+Linux
+-----
 
 System dependencies: glibc linux>=3, python>=2.7,<3 and a web browser
-supporting websockets (Firefox, Chrome, etc)::
+supporting websockets (Firefox, Chrome, etc) on Linux::
 
-    $ wget -O ~/bin/sphinxserve https://github.com/mzdaniel/sphinxserve/releases/download/0.7.1/sphinxserve
+    $ wget -O ~/bin/sphinxserve https://github.com/mzdaniel/sphinxserve/releases/download/0.7.4/sphinxserve-linux
+    $ chmod 755 ~/bin/sphinxserve
+
+OSX
+---
+
+Yosemite already has all needed dependencies::
+
+    $ wget -O ~/bin/sphinxserve https://github.com/mzdaniel/sphinxserve/releases/download/0.7.4/sphinxserve-osx
     $ chmod 755 ~/bin/sphinxserve
 
 
@@ -88,6 +100,8 @@ Linux system dependencies: glibc linux>=3, python>=2.7,<3, the C toolchain
 supporting websockets. pip automatically downloads sphinxserve and its python
 dependencies, compiles and builds wheel binary packages as needed and finally
 install sphinxserve.
+
+OSX system dependencies: Xcode. Verified to work on Yosemite.
 
 Windows system dependencies: Verified to work on Windows 7, python >=2.7,<3 and
 a web browser supporting websockets with just pip installing.
@@ -120,40 +134,27 @@ interface with the following command::
 Launching
 =========
 
-Assumming your sphinx project is in ~/docproj (containing conf.py) and
-~/bin is in your shell $PATH::
+Launching sphinxserve is as simple as::
 
-    $ sphinxserve ~/docproj
+    $ sphinxserve [OPTIONAL_SPHINX_PATH]
+
+By default, it assumes the sphinx project is in the current directory. A
+sphinx project needs to have the configuration file conf.py, and if not found,
+sphinxserve will automatically create 2 new files: conf.py and a
+restructuredtext index.rst.
+
+To change host and/or port, and other options, check the help with::
+
+    $ sphinxserve serve --help
 
 
 Workflow
 ========
 
 After launching sphinxserve, it will build the sphinx pages and serve them
-by default on localhost:8888. Any saved changes on rst or txt files will
+by default on localhost:8888. To see the rendered documentation, just point
+your browser to localhost:8888. Any saved changes on rst or txt files will
 trigger docs rebuild.
-
-
-Working in a Restructured text project
-======================================
-
-Lets put together all the pieces. A sphinx project needs at minimum 2 files:
-the project file conf.py and a restructuredtext (rst) index file index.rst::
-
-    cat > conf.py << EOF
-    master_doc = 'index'
-    EOF
-
-    cat > index.rst << 'EOF'
-    My awesome sphinx project
-    =========================
-
-    This is my first attempt to use `My awesome sphinx project`_
-    EOF
-
-At this point we can browse our project on localhost:8888 with just::
-
-    sphinxserve
 
 
 Thanks!
