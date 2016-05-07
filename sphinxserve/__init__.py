@@ -6,21 +6,25 @@ usage: sphinxserve [-h] {serve,install,uninstall} ...'''
 
 __version__ = '0.8b1'
 __author__ = 'Daniel Mizyrycki'
-
-import gevent.monkey
-gevent.monkey.patch_all()
-
-from gevent.event import Event
-from gevent import spawn, joinall
-from loadconfig import Config
-from loadconfig.lib import write_file
-import logging as log
+import logging
 import os
-from os.path import exists
-from sphinx import build_main
-from sphinxserve.lib import capture_streams, fs_event_ctx, Webserver
+import subprocess
 import sys
 from textwrap import dedent
+import time
+
+import coloredlogs
+from gevent import spawn, joinall
+from gevent.event import Event
+import gevent.monkey
+from loadconfig import Config
+from loadconfig.lib import write_file
+from sphinxserve.lib import fs_event_ctx, Webserver
+
+gevent.monkey.patch_all()
+
+
+logger = logging.getLogger(__name__)
 
 
 conf = '''\
@@ -48,6 +52,13 @@ conf = '''\
                         short: d
                         action: store_true
                         default: __SUPPRESS__
+                    loglevel:
+                        short: l
+                        default: INFO
+                    nocolor:
+                        short: n
+                        action: store_true
+                        default: False
                     uid:
                         short: u
                         type: int
@@ -112,6 +123,11 @@ class SphinxServer(object):
             port,
             self.render_ev
         )
+        logger.info(
+            "Listening on http://%s:%s",
+            host,
+            port,
+        )
         server.run()
 
     def watch(self):
@@ -119,7 +135,11 @@ class SphinxServer(object):
         '''
         with fs_event_ctx(self.c.sphinx_path, self.c.extensions) as fs_ev_iter:
             for event in fs_ev_iter:
-                log.debug('filesystem event: {}'.format(event, event.ev_name))
+                logger.info(
+                    '%s %s',
+                    event,
+                    event.ev_name,
+                )
                 self.watch_ev.set()
 
     def render(self):
@@ -128,24 +148,47 @@ class SphinxServer(object):
         while True:
             self.watch_ev.wait()  # Wait for docs changes
             self.watch_ev.clear()
-            with capture_streams() as streams:
-                self.build()
-            log.debug(streams.getvalue())
+
+            _, stdout, _ = self.build()
+
+            logger.debug(stdout)
+
             self.render_ev.set()
 
     def build(self):
         '''Render reStructuredText files with sphinx'''
-        return build_main(['sphinx-build', self.c.sphinx_path,
-            os.path.join(self.c.sphinx_path, self.c.output)])
+        started = time.time()
+        logger.info('Building...')
+        proc = subprocess.Popen(
+            [
+                self.c.sphinx_bin_path,
+                self.c.sphinx_path,
+                os.path.join(self.c.sphinx_path, self.c.output)
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        stdout, stderr = proc.communicate()
+
+        if stderr:
+            logger.warning(stderr)
+
+        total_seconds = time.time() - started
+        logger.info(
+            'Build completed in %fs',
+            total_seconds,
+        )
+
+        return proc.returncode, stdout, stderr
 
     def manage(self):
         '''Manage web server, watcher and sphinx docs renderer
         '''
-        with capture_streams() as streams:
-            ret = self.build()
+        ret, stderr, stdout = self.build()
+
         if ret != 0:
-            sys.exit(streams.getvalue())
-        log.debug(streams.getvalue())
+            sys.exit(stderr)
+        logger.debug(stdout)
         workers = [spawn(self.serve), spawn(self.watch), spawn(self.render)]
         joinall(workers)
 
@@ -159,9 +202,21 @@ class Prog(object):
     def check_dependencies(self):
         '''Create sphinx conf.py and index.rst if necessary'''
         path = self.c.sphinx_path
-        if not exists(path):
+
+        sphinx_bin_path = subprocess.check_output([
+            'which',
+            'sphinx-build',
+        ]).strip()
+        if not sphinx_bin_path:
+            raise SystemError(
+                "`sphinx-build` not found; Is the sphinx python "
+                "package installed?"
+            )
+        self.c.sphinx_bin_path = sphinx_bin_path
+
+        if not os.path.exists(path):
             os.makedirs(path)
-        if not exists(path + '/index.rst'):
+        if not os.path.exists(path + '/index.rst'):
             data = dedent('''\
                 Index rst file
                 ==============
@@ -169,7 +224,7 @@ class Prog(object):
                 This is the main reStructuredText page. It is meant as a
                 temporary example, ready to override.''')
             write_file(path + '/index.rst', data)
-        if not exists(path + '/conf.py'):
+        if not os.path.exists(path + '/conf.py'):
             write_file(path + '/conf.py', "master_doc = 'index'\n")
 
     def install(self):
@@ -206,8 +261,22 @@ class Prog(object):
 
 def main(args):
     c = Config(conf, args=args, version=__version__)
+
     if c.debug:
-        log.root.setLevel(log.DEBUG)
+        streamed_logger = logging.root
+    else:
+        streamed_logger = logger
+
+    streamed_logger.setLevel(logging.getLevelName(c.loglevel))
+    logging_stream = logging.StreamHandler()
+    logging_format = '%(asctime)s %(name)s %(levelname)s %(message)s'
+    if c.nocolor:
+        formatter_cls = logging.Formatter
+    else:
+        formatter_cls = coloredlogs.ColoredFormatter
+    logging_stream.setFormatter(formatter_cls(fmt=logging_format))
+    streamed_logger.addHandler(logging_stream)
+
     # Run command selected from cli (corresponding to conf subparser, and
     # Prog method. Eg: serve)
     c.run(Prog)
