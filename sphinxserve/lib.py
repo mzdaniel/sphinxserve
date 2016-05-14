@@ -44,8 +44,11 @@ class Webserver(object):
             ws.onclose = function() {    // reload server signal
                 window.location.reload(true)}
         </script>''')
-        app = Flask(__name__, static_url_path='',
-            static_folder=self.path + '/html')
+        app = Flask(
+            __name__,
+            static_url_path='',
+            static_folder=self.path
+        )
         sockets = Sockets(app)
 
         @app.route('/')

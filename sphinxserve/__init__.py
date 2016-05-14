@@ -60,6 +60,12 @@ conf = '''\
                         help: |
                             Launch web server if defined  (def: $app_socket)
                         default: $app_socket
+                    output:
+                        short: o
+                        help: |
+                            Directory to which output will be written; defaults
+                            to './html/'.
+                        default: html
                 args: &args
                     sphinx_path:
                         help: |
@@ -100,7 +106,12 @@ class SphinxServer(object):
         Reload remote browser when updates are rendered using websockets
         '''
         host, port = self.c.socket.split(':')
-        server = Webserver(self.c.sphinx_path, host, port, self.render_ev)
+        server = Webserver(
+            os.path.join(self.c.sphinx_path, self.c.output),
+            host,
+            port,
+            self.render_ev
+        )
         server.run()
 
     def watch(self):
@@ -114,21 +125,26 @@ class SphinxServer(object):
     def render(self):
         '''Render and listen for doc changes (watcher events)
         '''
-        spath = self.c.sphinx_path
         while True:
             self.watch_ev.wait()  # Wait for docs changes
             self.watch_ev.clear()
             with capture_stream() as stdout:
-                build_main(['sphinx-build', spath, spath + '/html'])
+                self.build()
             log.debug(stdout.getvalue())
             self.render_ev.set()
+
+    def build(self):
+        return build_main([
+            'sphinx-build',
+            self.c.sphinx_path,
+            os.path.join(self.c.sphinx_path, self.c.output)
+        ])
 
     def manage(self):
         '''Manage web server, watcher and sphinx docs renderer
         '''
-        spath = self.c.sphinx_path
         with capture_stream() as stdout, capture_stream('stderr') as stderr:
-            ret = build_main(['sphinx-build', spath, spath + '/html'])
+            ret = self.build()
         if ret != 0:
             sys.exit(stderr.getvalue())
         log.debug(stdout.getvalue())
