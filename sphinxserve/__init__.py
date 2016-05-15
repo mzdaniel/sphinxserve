@@ -13,12 +13,12 @@ gevent.monkey.patch_all()
 from gevent.event import Event
 from gevent import spawn, joinall
 from loadconfig import Config
-from loadconfig.lib import capture_stream, write_file
+from loadconfig.lib import write_file
 import logging as log
 import os
 from os.path import exists
 from sphinx import build_main
-from sphinxserve.lib import fs_event_ctx, Webserver
+from sphinxserve.lib import capture_streams, fs_event_ctx, Webserver
 import sys
 from textwrap import dedent
 
@@ -128,26 +128,24 @@ class SphinxServer(object):
         while True:
             self.watch_ev.wait()  # Wait for docs changes
             self.watch_ev.clear()
-            with capture_stream() as stdout:
+            with capture_streams() as streams:
                 self.build()
-            log.debug(stdout.getvalue())
+            log.debug(streams.getvalue())
             self.render_ev.set()
 
     def build(self):
-        return build_main([
-            'sphinx-build',
-            self.c.sphinx_path,
-            os.path.join(self.c.sphinx_path, self.c.output)
-        ])
+        '''Render reStructuredText files with sphinx'''
+        return build_main(['sphinx-build', self.c.sphinx_path,
+            os.path.join(self.c.sphinx_path, self.c.output)])
 
     def manage(self):
         '''Manage web server, watcher and sphinx docs renderer
         '''
-        with capture_stream() as stdout, capture_stream('stderr') as stderr:
+        with capture_streams() as streams:
             ret = self.build()
         if ret != 0:
-            sys.exit(stderr.getvalue())
-        log.debug(stdout.getvalue())
+            sys.exit(streams.getvalue())
+        log.debug(streams.getvalue())
         workers = [spawn(self.serve), spawn(self.watch), spawn(self.render)]
         joinall(workers)
 

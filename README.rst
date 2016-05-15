@@ -41,17 +41,29 @@ Design considerations
 sphinxserve was originally conceived as a Python and Linux project that can
 visualize sphinx document modifications in real time while working on them. At
 its core, sphinxserve uses the awesome projects `gevent`_  to provide
-concurrency and event coordination, `flask`_ for web communication, Sphinx
-for reStructucturedText rendering and of course `Python`_. sphinxserve used to
-control browser reloading with xdotool, introducing a complex system tool
-dependency. On release 0.7, sphinxserve decouples from this system dependency
-using instead flask-sockets python package. The tradeoff here was to
-temporarily drop python3 support until the gevent ecosystem officially
-supports python3 which should be soon. Also, the filesystem notification tool
-was upgraded to watchdog, removing another system dependency and making
-the code more generic and cleaner. With these changes, as of release 0.7.4,
-sphinxserve is able to run in other platforms as OSX and Windows for example.
+concurrency and event coordination, `bottle`_ for web communication,
+`watchdog`_ for filesystem events, `Sphinx`_ for reStructucturedText rendering
+and of course `Python`_.
 
+History
+=======
+
+release 0.8: sphinxserve fully supports python3. bottle replaces flask and
+ajax long polling replaces websockets to simplify even more the web server
+logic.
+
+release 0.7.4: sphinxserve is able to run in other platforms as OSX and Windows
+for example.
+
+release 0.7: sphinxserve decoupled from xdotool using flask-sockets python
+package. The tradeoff was to temporarily drop python3 support until the gevent
+ecosystem officially supported python3. Also, the filesystem notification tool
+was upgraded to watchdog, removing another system dependency and making the
+code more generic and cleaner.
+
+release <0.7: sphinxserve used to control browser reloading with xdotool,
+a complex system tool dependency only available on Unix systems and tested
+on Linux.
 
 Installation
 ============
@@ -77,10 +89,10 @@ Ubuntu>=14, Centos>=7 and Arch distros on Linux and in Yosemite on OSX.
 Linux
 -----
 
-System dependencies: glibc linux>=3, python>=2.7,<3 and a web browser
+System dependencies: glibc linux>=3, python>=2.7 and a web browser
 supporting websockets (Firefox, Chrome, etc) on Linux::
 
-    $ wget -O ~/bin/sphinxserve https://github.com/mzdaniel/sphinxserve/releases/download/0.7.4/sphinxserve-linux
+    $ wget -O ~/bin/sphinxserve https://github.com/mzdaniel/sphinxserve/releases/download/0.7.5/sphinxserve-linux
     $ chmod 755 ~/bin/sphinxserve
 
 OSX
@@ -88,23 +100,24 @@ OSX
 
 Yosemite already has all needed dependencies::
 
-    $ wget -O ~/bin/sphinxserve https://github.com/mzdaniel/sphinxserve/releases/download/0.7.4/sphinxserve-osx
+    $ wget -O ~/bin/sphinxserve https://github.com/mzdaniel/sphinxserve/releases/download/0.7.5/sphinxserve-osx
     $ chmod 755 ~/bin/sphinxserve
 
 
 Python package
 ~~~~~~~~~~~~~~
 
-Linux system dependencies: glibc linux>=3, python>=2.7,<3, the C toolchain
+Linux system dependencies: glibc linux>=3, python>=2.7, the C toolchain
 (package names dependent on linux distro) to compile gevent and a web browser
-supporting websockets. pip automatically downloads sphinxserve and its python
+supporting javascript. pip automatically downloads sphinxserve and its python
 dependencies, compiles and builds wheel binary packages as needed and finally
 install sphinxserve.
 
-OSX system dependencies: Xcode. Verified to work on Yosemite.
+OSX system dependencies: Verified to work on Yosemite, python >=2.7 and
+a web browser supporting javascript ajax with just pip installing.
 
-Windows system dependencies: Verified to work on Windows 7, python >=2.7,<3 and
-a web browser supporting websockets with just pip installing.
+Windows system dependencies: Verified to work on Windows 7, python >=2.7 and
+a web browser supporting javascript ajax with just pip installing.
 
 In all systems::
 
@@ -157,14 +170,29 @@ your browser to localhost:8888. Any saved changes on rst or txt files will
 trigger docs rebuild.
 
 
+Local test/build
+================
+
+Assumptions for this section: A unix system, python2.7, 3.4 or 3.5, and
+pip >= 8.1. Although git is recommended, it is not required.
+
+We use tox to test sphinxserve in virtualenvs for python2.7, 3.4 and 3.5
+Tox is a generic virtualenv manager and test command line tool. It handles the
+creation of virtualenvs with proper python dependencies for testing, pep8
+checking and building:
+
+    $ git clone https://github.com/mzdaniel/sphinxserve; cd sphinxserve
+    $ pip install tox
+    $ tox
+
+
 Thanks!
 =======
 
 * `Guido van Rossum`_ and `Linus Torvalds`_
 * Georg Brandl & David Goodger for `Sphinx`_ and `reStructuredText`_
 * Denis Bilenko, Armin Rigo & Christian Tismer for `Gevent`_ and `Greenlet`_
-* Armin Ronacher for `Flask`_
-* Jeffrey Gelens & Kenneth Reitz for `gevent websocket`_ and `flask sockets`_
+* Marcel Hellkamp for `bottle`_
 * Yesudeep Mangalapilly for `watchdog`_
 * Holger Krekel for `pytest`_ and `tox`_
 * Eric Holscher for `Read The Docs`_
@@ -177,13 +205,11 @@ Thanks!
 .. _Guido van Rossum: http://en.wikipedia.org/wiki/Guido_van_Rossum
 .. _Linus Torvalds: http://en.wikipedia.org/wiki/Linus_Torvalds
 .. _python: https://www.python.org
-.. _sphinx: http://sphinx-doc.org/tutorial.html
+.. _Sphinx: http://sphinx-doc.org/tutorial.html
 .. _restructuredtext: http://docutils.sourceforge.net/rst.html
 .. _gevent: http://gevent.org
 .. _greenlet: https://github.com/python-greenlet/greenlet
-.. _flask: http://flask.pocoo.org
-.. _gevent websocket:  https://bitbucket.org/Jeffrey/gevent-websocket
-.. _flask sockets: https://github.com/kennethreitz/flask-sockets
+.. _bottle: http://bottlepy.org/docs/dev/index.html
 .. _watchdog: https://github.com/gorakhargosh/watchdog
 .. _pytest: http://pytest.org
 .. _pex: https://github.com/pantsbuild/pex

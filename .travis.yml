@@ -7,11 +7,11 @@ matrix:
       osx_image: beta-xcode6.3
 
 python:
-  - 2.7
+  - 3.4
 
 install:
-  - sudo bash -c 'python2.7 <(curl https://bootstrap.pypa.io/get-pip.py)'
-  - sudo pip install tox
+  - sudo bash -c 'python3.4 <(curl https://bootstrap.pypa.io/get-pip.py)'
+  - sudo pip3 install tox
 
 script:
   - tox

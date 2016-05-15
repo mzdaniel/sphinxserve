@@ -5,78 +5,69 @@ from gevent.os import tp_read
 import os
 os.read = tp_read
 
+from bottle import get, run, static_file
 from contextlib import contextmanager
-from flask import Flask
-from flask_sockets import Sockets
 import gevent
-from gevent.pywsgi import WSGIServer
 from gevent.queue import Queue
 from gevent import sleep
-from geventwebsocket.handler import WebSocketHandler
 from loadconfig.lib import Ret
+from loadconfig.py6 import cStringIO
 import re
 import socket
-from sys import platform
+import sys
 from textwrap import dedent
 from watchdog.events import PatternMatchingEventHandler
 from watchdog.observers import Observer
 
-if platform.startswith('win') or platform.startswith('darwin'):
+if sys.platform.startswith('win') or sys.platform.startswith('darwin'):
     from watchdog.observers.polling import PollingObserver as Observer  # noqa
 
 
 class Webserver(object):
     '''Serve static content from path, featuring asynchronous reload.
-    reload uses flask-sockets for async gevent communication on the server
-    and websockets on the browser.
+    Page reload is triggered by sphinx rst updates using gevent on the server
+    and executed after ajax long polling on the browser.
     '''
-    def __init__(self, path, host, port, sig_reload):
-        self.path = path
-        self.host = host
-        self.port = port
-        self.signal = sig_reload
+    def __init__(self, path, host, port, reload_ev):
+        self.path, self.host, self.port = path, host, port
+        self.reload_ev = reload_ev
 
     def run(self):
         reload_js = dedent('''\
         <script type="text/javascript">
             $.ajaxSetup({cache: false})  // drop browser cache for refresh
-            var ws = new WebSocket("ws://" + location.host + "/ws")
-            ws.onclose = function() {    // reload server signal
-                window.location.reload(true)}
+            $(document).ready(function() {
+                $.ajax({ type: "GET", async: true, cache: false,
+                    url: location.protocol + "//" + location.host + "/_svwait",
+                    success: function() {window.location.reload(true)} }) })
         </script>''')
-        app = Flask(
-            __name__,
-            static_url_path='',
-            static_folder=self.path
-        )
-        sockets = Sockets(app)
 
-        @app.route('/')
-        def root():
-            return app.send_static_file('index.html')
-
-        @app.after_request
         def after_request(response):
             '''Add reload javascript and remove googleapis fonts'''
-            response.direct_passthrough = False
-            if response.content_type.startswith('text/html'):
-                response.data = re.sub('(</head>)', r'{}\1'.format(reload_js),
-                    response.data, flags=re.IGNORECASE)
-            if response.content_type.startswith('text/css'):
-                response.data = re.sub(
-                    '@import url\(.+fonts.googleapis.com.+\);', '',
-                    response.data, flags=re.IGNORECASE)
-            return response
+            r = response
+            r.body = r.body.read().decode('utf-8') if getattr(
+                r.body, 'read', False) else r.body
+            if r.content_type.startswith('text/html'):
+                r.body = re.sub('(</head>)', r'{}\1'.format(reload_js),
+                    r.body, flags=re.IGNORECASE)
+            if r.content_type.startswith('text/css'):
+                r.body = re.sub('@import url\(.+fonts.googleapis.com.+\);', '',
+                    r.body, flags=re.IGNORECASE)
+            return r
 
-        @sockets.route('/ws')
-        def ws_socket(ws):
-            '''Reload browser'''
-            self.signal.wait()
-            self.signal.clear()
-            ws.close()
+        @get('<path:path>')
+        def serve_static(path):
+            path = path + '/index.html' if path.endswith('/') else path
+            response = static_file(path, root=self.path)
+            return after_request(response)
 
-        WSGIServer((self.host, int(self.port)), app,
-            handler_class=WebSocketHandler).serve_forever()
+        @get('/_svwait')
+        def wait_server_event():
+            '''Block long polling javascript until reload event'''
+            self.reload_ev.wait()
+            self.reload_ev.clear()
+
+        run(host=self.host, port=int(self.port), server='gevent')
 
 
 @contextmanager
@@ -108,6 +99,25 @@ def fs_event_ctx(path, extensions):
     observer.stop()
     del observer
     del evh
+
+
+@contextmanager
+def capture_streams():
+    r'''Capture streams (stdout & stderr) in a string
+    >>> with capture_streams() as streams:
+    ...     print('Hi there')
+    >>> streams.getvalue()
+    'Hi there\n'
+    '''
+    stdout = sys.stdout
+    stderr = sys.stderr
+    data = cStringIO()
+    sys.stdout = data
+    sys.stderr = data
+    yield data
+    sys.stdout = stdout
+    sys.stderr = stderr
+    data.flush()
 
 
 class Timeout(gevent.Timeout):
