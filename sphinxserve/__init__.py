@@ -8,6 +8,7 @@ __version__ = '0.8b1'
 __author__ = 'Daniel Mizyrycki'
 import logging
 import os
+import shlex
 import subprocess
 import sys
 from textwrap import dedent
@@ -18,7 +19,7 @@ from gevent import spawn, joinall
 from gevent.event import Event
 import gevent.monkey
 from loadconfig import Config
-from loadconfig.lib import write_file
+from loadconfig.lib import run, write_file
 from sphinxserve.lib import fs_event_ctx, Webserver
 
 gevent.monkey.patch_all()
@@ -149,46 +150,41 @@ class SphinxServer(object):
             self.watch_ev.wait()  # Wait for docs changes
             self.watch_ev.clear()
 
-            _, stdout, _ = self.build()
-
-            logger.debug(stdout)
-
+            result = self.build()
+            logger.debug(result.stdout)
             self.render_ev.set()
 
     def build(self):
         '''Render reStructuredText files with sphinx'''
         started = time.time()
         logger.info('Building...')
-        proc = subprocess.Popen(
-            [
-                self.c.sphinx_bin_path,
-                self.c.sphinx_path,
-                os.path.join(self.c.sphinx_path, self.c.output)
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        stdout, stderr = proc.communicate()
 
-        if stderr:
-            logger.warning(stderr)
+        result = run(
+            'sphinx-build {rst_path} {output_path}'.format(
+                rst_path=shlex.quote(self.c.sphinx_path),
+                output_path=shlex.quote(
+                    os.path.join(self.c.sphinx_path, self.c.output)
+                )
+            )
+        )
+
+        if result.stderr.strip():
+            logger.warning(result.stderr.strip())
 
         total_seconds = time.time() - started
-        logger.info(
-            'Build completed in %fs',
-            total_seconds,
-        )
+        logger.info('Build completed in %fs', total_seconds)
 
-        return proc.returncode, stdout, stderr
+        return result
 
     def manage(self):
         '''Manage web server, watcher and sphinx docs renderer
         '''
-        ret, stderr, stdout = self.build()
+        result = self.build()
 
-        if ret != 0:
-            sys.exit(stderr)
-        logger.debug(stdout)
+        if result.code != 0:
+            sys.exit(result.stderr)
+
+        logger.debug(result.stdout)
         workers = [spawn(self.serve), spawn(self.watch), spawn(self.render)]
         joinall(workers)
 
