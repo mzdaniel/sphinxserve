@@ -131,11 +131,7 @@ class SphinxServer(object):
         '''
         with fs_event_ctx(self.c.sphinx_path, self.c.extensions) as fs_ev_iter:
             for event in fs_ev_iter:
-                logger.info(
-                    '%s %s',
-                    event,
-                    event.ev_name,
-                )
+                logger.info('%s %s', event, event.ev_name)
                 self.watch_ev.set()
 
     def render(self):
