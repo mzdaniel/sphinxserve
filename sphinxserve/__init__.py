@@ -6,6 +6,9 @@ usage: sphinxserve [-h] {serve,install,uninstall} ...'''
 
 __version__ = '0.8b1'
 __author__ = 'Daniel Mizyrycki'
+import gevent.monkey
+gevent.monkey.patch_all()
+
 import logging
 import os
 import shlex
@@ -17,12 +20,9 @@ import time
 import coloredlogs
 from gevent import spawn, joinall
 from gevent.event import Event
-import gevent.monkey
 from loadconfig import Config
 from loadconfig.lib import run, write_file
 from sphinxserve.lib import fs_event_ctx, Webserver
-
-gevent.monkey.patch_all()
 
 
 logger = logging.getLogger(__name__)
