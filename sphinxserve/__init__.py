@@ -12,7 +12,6 @@ gevent.monkey.patch_all()
 import logging
 import os
 import shlex
-import subprocess
 import sys
 from textwrap import dedent
 import time
@@ -194,17 +193,6 @@ class Prog(object):
     def check_dependencies(self):
         '''Create sphinx conf.py and index.rst if necessary'''
         path = self.c.sphinx_path
-
-        sphinx_bin_path = subprocess.check_output([
-            'which',
-            'sphinx-build',
-        ]).strip()
-        if not sphinx_bin_path:
-            raise SystemError(
-                "`sphinx-build` not found; Is the sphinx python "
-                "package installed?"
-            )
-        self.c.sphinx_bin_path = sphinx_bin_path
 
         if not os.path.exists(path):
             os.makedirs(path)
