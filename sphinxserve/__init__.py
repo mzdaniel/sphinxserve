@@ -124,11 +124,7 @@ class SphinxServer(object):
             port,
             self.render_ev
         )
-        logger.info(
-            "Listening on http://%s:%s",
-            host,
-            port,
-        )
+        logger.info("Listening on http://%s:%s", host, port)
         server.run()
 
     def watch(self):
