@@ -11,7 +11,6 @@ gevent.monkey.patch_all()
 
 import logging
 import os
-import shlex
 import sys
 from textwrap import dedent
 import time
@@ -22,6 +21,11 @@ from gevent.event import Event
 from loadconfig import Config
 from loadconfig.lib import run, write_file
 from sphinxserve.lib import fs_event_ctx, Webserver
+
+try:
+    from shlex import quote as shlex_quote
+except ImportError:
+    from pipes import quote as shlex_quote
 
 
 logger = logging.getLogger(__name__)
@@ -48,13 +52,10 @@ conf = '''\
                     serve sphinx docs. (For extra help, use:
                         sphinxserve serve --help)
                 options: &options
-                    debug:
-                        short: d
-                        action: store_true
-                        default: __SUPPRESS__
                     loglevel:
                         short: l
-                        default: INFO
+                        default: 20
+                        type: int
                     nocolor:
                         short: n
                         action: store_true
@@ -152,8 +153,8 @@ class SphinxServer(object):
 
         result = run(
             'sphinx-build {rst_path} {output_path}'.format(
-                rst_path=shlex.quote(self.c.sphinx_path),
-                output_path=shlex.quote(
+                rst_path=shlex_quote(self.c.sphinx_path),
+                output_path=shlex_quote(
                     os.path.join(self.c.sphinx_path, self.c.output)
                 )
             )
@@ -238,12 +239,7 @@ class Prog(object):
 def main(args):
     c = Config(conf, args=args, version=__version__)
 
-    if c.debug:
-        streamed_logger = logging.root
-    else:
-        streamed_logger = logger
-
-    streamed_logger.setLevel(logging.getLevelName(c.loglevel))
+    logger.setLevel(c.loglevel)
     logging_stream = logging.StreamHandler()
     logging_format = '%(asctime)s %(name)s %(levelname)s %(message)s'
     if c.nocolor:
@@ -251,7 +247,7 @@ def main(args):
     else:
         formatter_cls = coloredlogs.ColoredFormatter
     logging_stream.setFormatter(formatter_cls(fmt=logging_format))
-    streamed_logger.addHandler(logging_stream)
+    logger.addHandler(logging_stream)
 
     # Run command selected from cli (corresponding to conf subparser, and
     # Prog method. Eg: serve)
