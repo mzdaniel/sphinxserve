@@ -14,9 +14,10 @@ import os
 import sys
 from textwrap import dedent
 import time
+from signal import SIGTERM
 
 import coloredlogs
-from gevent import spawn, joinall
+from gevent import spawn, joinall, killall, signal
 from gevent.event import Event
 from loadconfig import Config
 from loadconfig.lib import run, write_file
@@ -172,13 +173,17 @@ class SphinxServer(object):
         '''Manage web server, watcher and sphinx docs renderer
         '''
         result = self.build()
-
         if result.code != 0:
             sys.exit(result.stderr)
-
         logger.debug(result.stdout)
         workers = [spawn(self.serve), spawn(self.watch), spawn(self.render)]
+
+        def shutdown_handler():
+            logger.info("Received SIGTERM signal to shut down!")
+            killall(workers)
+        signal(SIGTERM, shutdown_handler)
         joinall(workers)
+        sys.exit(0)
 
 
 class Prog(object):
