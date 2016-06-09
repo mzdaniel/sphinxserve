@@ -45,6 +45,10 @@ class Webserver(object):
         def after_request(response):
             '''Add reload javascript and remove googleapis fonts'''
             r = response
+            if not r.content_type.startswith('text/'):
+                # Let's not bother with post-processing non-text files
+                # like images, etc.
+                return r
             r.body = r.body.read().decode('utf-8') if getattr(
                 r.body, 'read', False) else r.body
             if r.content_type.startswith('text/html'):
