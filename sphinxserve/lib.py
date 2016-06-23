@@ -5,13 +5,15 @@ from gevent.os import tp_read
 import os
 os.read = tp_read
 
-from bottle import get, run, static_file
+from bottle import get, install, response, request, run, static_file
 from contextlib import contextmanager
+from functools import wraps
 import gevent
 from gevent.queue import Queue
 from gevent import sleep
 from loadconfig.lib import Ret
 from loadconfig.py6 import cStringIO
+import logging
 import re
 import socket
 import sys
@@ -21,6 +23,9 @@ from watchdog.observers import Observer
 
 if sys.platform.startswith('win') or sys.platform.startswith('darwin'):
     from watchdog.observers.polling import PollingObserver as Observer  # noqa
+
+
+logger = logging.getLogger(__name__)
 
 
 class Webserver(object):
@@ -71,7 +76,8 @@ class Webserver(object):
             self.reload_ev.wait()
             self.reload_ev.clear()
 
-        run(host=self.host, port=int(self.port), server='gevent')
+        install(log_to_logger)
+        run(host=self.host, port=int(self.port), quiet=True, server='gevent')
 
 
 @contextmanager
@@ -135,6 +141,21 @@ class Timeout(gevent.Timeout):
         if value is self and self.exception is False:
             self.expired = True
             return True
+
+
+def log_to_logger(fn):
+    @wraps(fn)
+    def _log_to_logger(*args, **kwargs):
+        actual_response = fn(*args, **kwargs)
+        logger.debug(
+            '%s %s %s',
+            request.method,
+            request.url,
+            response.status,
+        )
+
+        return actual_response
+    return _log_to_logger
 
 
 def check_host(host, port=22, timeout=1, recv=False):
