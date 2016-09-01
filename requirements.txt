@@ -1,5 +1,5 @@
 bottle==0.12.9
-gevent>=1.1.1
+gevent>=1.1.2
 loadconfig>=0.1.1
 sphinx>=1.2.3
 watchdog>=0.8.3

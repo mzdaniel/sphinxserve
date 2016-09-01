@@ -50,10 +50,14 @@ def serve_ctx():
 
         c.proc = Process(target=main, args=(['sphinxserve', tmpdir],))
         c.proc.start()
-        check_host(c.host, c.port, timeout=3)
-        yield c
-        c.proc.terminate()
-        c.proc.join()
+        try:
+            check_host(c.host, c.port, timeout=5)
+            yield c
+        finally:
+            c.proc.terminate()
+            while c.proc.is_alive():
+                sleep(0.1)
+            c.proc.join()
 
 
 def test_gevent():
