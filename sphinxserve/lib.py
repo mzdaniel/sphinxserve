@@ -46,17 +46,17 @@ class Webserver(object):
             '''Add reload javascript and remove googleapis fonts'''
             r = response
             if not r.content_type.startswith('text/'):
-                # Let's not bother with post-processing non-text files
-                # like images, etc.
                 return r
-            r.body = r.body.read().decode('utf-8') if getattr(
-                r.body, 'read', False) else r.body
+            body = b''.join(r).decode('utf-8')
+            r.close()
             if r.content_type.startswith('text/html'):
-                r.body = re.sub('(</head>)', r'{}\1'.format(reload_js),
-                    r.body, flags=re.IGNORECASE)
+                body = re.sub(r'(</head>)', r'{}\1'.format(reload_js),
+                    body, flags=re.IGNORECASE)
             if r.content_type.startswith('text/css'):
-                r.body = re.sub('@import url\(.+fonts.googleapis.com.+\);', '',
-                    r.body, flags=re.IGNORECASE)
+                body = re.sub(r'@import url\(.+fonts.googleapis.com.+\);', '',
+                    body, flags=re.IGNORECASE)
+            r.headers['Content-Length'] = len(body)
+            r.body = body
             return r
 
         @get('<path:path>')
