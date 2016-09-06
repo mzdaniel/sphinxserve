@@ -106,11 +106,12 @@ def test_functional(serve_ctx):
             fh.write(line + '\n')
 
     def get_page(url, timestamp):
-        for x in range(10):  # give up to 3 sec to do the test
-            r = get(url)
-            if timestamp != r.headers['last-modified']:
-                break
-            sleep(0.3)
+        with Timeout(5, False):
+            while True:
+                r = get(url)
+                if timestamp != r.headers['last-modified']:
+                    break
+                sleep(0.3)
         return Ret(r.text, timestamp=r.headers['last-modified'])
 
     # Test main header in rendered page
