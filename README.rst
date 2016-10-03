@@ -50,7 +50,8 @@ History
 
 release 0.8: sphinxserve fully supports python3. bottle replaces flask and
 ajax long polling replaces websockets to simplify even more the web server
-logic.
+logic. Isolate each build using multiprocessing for reliable rendering when
+using sphinx extensions. Major log improvements including colors.
 
 release 0.7.4: sphinxserve is able to run in other platforms as OSX and Windows
 for example.
@@ -200,6 +201,7 @@ Thanks!
 * Mark Otto, Jacob Thornton & Ryan Roemer for `Bootstrap`_  `sphinx bootstrap`_
 * Hakim El Hattab & tell-k for `Revealjs`_ and `sphinx revealjs`_
 * Solomon Hykes, Jerome Petazzoni and Sam Alba for `Docker`_
+* PyCon, PyBay, SFPython, PyLadies and BayPiggies
 * The awesome Python, Linux and Git communities
 
 .. _Guido van Rossum: http://en.wikipedia.org/wiki/Guido_van_Rossum

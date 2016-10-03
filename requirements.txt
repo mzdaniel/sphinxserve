@@ -1,6 +1,7 @@
-bottle==0.12.9
+bottle>=0.12.9
+coloredlogs>=5.0
+decorator>=4.0.10
 gevent>=1.1.2
 loadconfig>=0.1.1
 sphinx>=1.2.3
 watchdog>=0.8.3
-coloredlogs==5.0

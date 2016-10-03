@@ -6,33 +6,34 @@ import os
 os.read = tp_read
 
 from bottle import get, install, response, request, run, static_file
+from coloredlogs import ColoredFormatter
 from contextlib import contextmanager
-from functools import wraps
+from decorator import decorator
+from distutils.dir_util import mkpath
 import gevent
 from gevent.queue import Queue
 from gevent import sleep
-from loadconfig.lib import Ret
+from loadconfig.lib import Ret, write_file
 from loadconfig.py6 import cStringIO
 import logging
 import re
 import socket
 import sys
 from textwrap import dedent
+from time import time
 from watchdog.events import PatternMatchingEventHandler
 from watchdog.observers import Observer
 
 if sys.platform.startswith('win') or sys.platform.startswith('darwin'):
     from watchdog.observers.polling import PollingObserver as Observer  # noqa
 
-
-logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 class Webserver(object):
     '''Serve static content from path, featuring asynchronous reload.
-    Page reload is triggered by sphinx rst updates using gevent on the server
-    and executed after ajax long polling on the browser.
-    '''
+       Page reload is triggered by sphinx rst updates using gevent on the
+       server and executed after ajax long polling on the browser.'''
     def __init__(self, path, host, port, reload_ev):
         self.path, self.host, self.port = path, host, port
         self.reload_ev = reload_ev
@@ -143,25 +144,30 @@ class Timeout(gevent.Timeout):
             return True
 
 
-def log_to_logger(fn):
-    @wraps(fn)
-    def _log_to_logger(*args, **kwargs):
-        actual_response = fn(*args, **kwargs)
-        logger.debug(
-            '%s %s %s',
-            request.method,
-            request.url,
-            response.status,
-        )
+def exit_msg(msg, exitcode=1):
+    log.error(msg)
+    exit(exitcode)
 
-        return actual_response
-    return _log_to_logger
+
+@decorator
+def log_to_logger(func, *args, **kwargs):
+    log.debug('%s %s %s', request.method, request.url, response.status)
+    return func(*args, **kwargs)
+
+
+@decorator
+def elapsed(func, *args, **kwargs):
+    '''Elapsed time logger decorator'''
+    log.info('Building...')
+    started = time()
+    retcode = func(*args, **kwargs)
+    log.info('Build completed in %fs', time() - started)
+    return retcode
 
 
 def check_host(host, port=22, timeout=1, recv=False):
     '''Return True if socket is active. timeout in seconds.
-    Use recv=False if socket is silent after connection
-    '''
+       Use recv=False if socket is silent after connection'''
     with Timeout(timeout) as ctx:
         while True:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -178,3 +184,59 @@ def check_host(host, port=22, timeout=1, recv=False):
             finally:
                 sock.close()
     return not ctx.expired
+
+
+def check_dependencies(c):
+    '''Ensure sphinx conf.py and index.rst are on c.sphinx_path
+       c is the configuration object.'''
+    path = c.sphinx_path
+    if not os.path.exists(path):
+        exit_msg("\nSphinx config dir %s doesn't exist" % path)
+    if not os.path.exists(path + '/index.rst'):
+        exit_msg("\nindex.rst doesn't exist on %s\n"
+             "Look on '%s --help' to create a default file" % (path, c.app))
+    if not os.path.exists(path + '/conf.py'):
+        exit_msg("\nconf.py sphinx config file doesn't exist on %s\n"
+             "Look on '%s --help' to create a default file" % (path, c.app))
+
+
+def setlog(c):
+    '''Set logging. Call setlog *before* using logging.
+       c is the configuration object.'''
+    c.loglevel = 50 - 10 * c.debug
+    c.quiet = []  # Switch for limiting sphinx logs.
+    if c.debug in [0, 1, 2]:
+        c.quiet = ['-Q']
+    elif c.debug == 3:
+        c.quiet = ['-q']
+    formatter_cls = logging.Formatter if c.nocolor else ColoredFormatter
+    logging_stream = logging.StreamHandler()
+    logging_stream.setFormatter(formatter_cls(
+        '%(asctime)s %(name)s %(levelname)s %(message)s', '%Y-%m-%d %H:%M:%S'))
+    log = logging.getLogger()
+    log.setLevel(c.loglevel)
+    log.addHandler(logging_stream)
+    return log
+
+
+def setup(c):
+    '''Set logger and process switches. c is the configuration object.'''
+    setlog(c)
+
+    path = c.sphinx_path
+    c.path_dest = os.path.join(path, c.path_dest)
+    log.debug('\n' + str(c))
+    if c.make_conf:
+        mkpath(path)
+        write_file(path + '/conf.py', "master_doc = 'index'\n")
+    if c.make_index:
+        mkpath(path)
+        data = dedent('''\
+            Index rst file
+            ==============
+
+            This is the main reStructuredText page. It is meant as a
+            temporary example, ready to override.''')
+        write_file(path + '/index.rst', data)
+    check_dependencies(c)
+    return c

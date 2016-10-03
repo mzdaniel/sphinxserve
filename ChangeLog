@@ -1,6 +1,25 @@
 CHANGES
 =======
 
+0.8
+---
+
+* Make default conf.py and index.rst configurable
+* Implement simple debug levels
+* Major code reorganization, cleanup and code simplification
+* Fix pex binary distribution replacing subprocess rendering with
+  multiprocessing as pex cannot deal with shellscripts on packages.
+* Improve coverage measurements of multiprocessing functional test
+* Improve web logs (credits: Adam Coddington)
+* Add signal handling to improve coverage measurements (credits: Sheila Allen)
+* Major log improvements including color output (credits: Adam Coddington)
+* Add python3 support. Improve webserver logic using bottle
+  instead of flask and ajax long polling instead of websockets.
+  Improve debugging. Improve tox build and tests.
+  Reduce and update dependencies
+* Made output directory configurable (credits: Adam Coddington)
+
+
 0.7.4
 -----
 

@@ -48,16 +48,16 @@ def serve_ctx():
         with open(tmpdir + '/index.rst', 'w') as fh:
             fh.write(c.index_rst)
 
-        c.proc = Process(target=main, args=(['sphinxserve', tmpdir],))
-        c.proc.start()
+        proc = Process(target=main, args=(['sphinxserve', tmpdir],))
+        proc.start()
         try:
             check_host(c.host, c.port, timeout=5)
             yield c
         finally:
-            c.proc.terminate()
-            while c.proc.is_alive():
+            proc.terminate()
+            while proc.is_alive():
                 sleep(0.1)
-            c.proc.join()
+            proc.join()
 
 
 def test_gevent():
