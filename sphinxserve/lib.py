@@ -56,7 +56,7 @@ class Webserver(object):
             body = b''.join(r).decode('utf-8')
             r.close()
             if r.content_type.startswith('text/html'):
-                body = re.sub(r'(</head>)', r'{}\1'.format(reload_js),
+                body = re.sub(r'(</body>)', r'{}\1'.format(reload_js),
                     body, flags=re.IGNORECASE)
             if r.content_type.startswith('text/css'):
                 body = re.sub(r'@import url\(.+fonts.googleapis.com.+\);', '',
